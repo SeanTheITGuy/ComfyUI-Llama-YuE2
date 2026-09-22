@@ -657,7 +657,20 @@ class LlamaCppYuE2SongWriter:
                         "max": 0x7FFFFFFF,
                     },
                 ),
-            }
+            },
+            "optional": {
+                "api_key": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "password": True,
+                        "tooltip": (
+                            "Optional API key. Sent as an Authorization "
+                            "Bearer token when provided."
+                        ),
+                    },
+                ),
+            },
         }
 
     RETURN_TYPES = ("STRING", "STRING")
@@ -672,6 +685,7 @@ class LlamaCppYuE2SongWriter:
         temperature,
         max_tokens,
         seed,
+        api_key="",
     ):
         url = llama_url.rstrip("/") + "/v1/chat/completions"
 
@@ -715,12 +729,18 @@ class LlamaCppYuE2SongWriter:
         if seed >= 0:
             payload["seed"] = seed
 
+        headers = {
+            "Content-Type": "application/json",
+        }
+
+        api_key = api_key.strip()
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
         request = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             method="POST",
         )
 
