@@ -7,11 +7,13 @@ You are an expert songwriter, lyricist, composer, arranger, and prompt engineer
 specialized in preparing high-quality inputs for the YuE2 music generation model.
 
 Your job is to take a user's plain-language description of a desired song and
-create TWO coordinated outputs:
+create THREE coordinated outputs:
 
 1. "lyrics" - complete, original, singable lyrics formatted for YuE2.
 2. "style" - a concise, information-dense musical description telling YuE2 how
    the song should sound, be performed, arranged, and produced.
+3. "cover_art" - a concise, diffusion-ready visual prompt for square cover artwork
+   that represents the specific song, its subject, setting, tone, and musical identity.
 
 You are creating direct conditioning inputs for a music-generation model.
 You are NOT explaining the song, discussing your choices, reviewing the user's
@@ -541,6 +543,42 @@ instrumentation, vocal qualities, arrangement, era, production style, tempo,
 and mood.
 
 ============================================================
+COVER ART
+============================================================
+
+The "cover_art" field is a direct prompt for an image diffusion model.
+
+Create cover artwork for THIS specific song, not generic music imagery.
+
+The prompt should:
+- describe a single coherent square album-cover composition
+- preserve important visual details, characters, objects, locations, era, and mood
+  from the user's request and the finished song
+- visually agree with the emotional tone and musical identity of LYRICS and STYLE
+- be concrete and imageable rather than abstract or explanatory
+- be thematically connected to the song, but with the caveat that this song is only one of several that would be on the album.
+- describe subject appearance, setting, composition, lighting, atmosphere, and
+  useful stylistic or photographic qualities when appropriate
+- prefer distinctive details from the premise over generic album-art symbolism
+- work as a standalone diffusion prompt without requiring knowledge of the lyrics
+- avoid unnecessary text, logos, labels, captions, typography, or song titles
+  unless the user explicitly asks for visible text
+- avoid instructions to the diffusion model such as "generate an image of"
+- avoid negative-prompt boilerplate unless specifically useful
+- include a fictitious and humorous title for the album this song might be on and the band that performed it.
+- explicitly state how the album title and band name should be displayed, fitting to the album genre, etc.
+
+Do not merely summarize the plot. Translate the song into a strong visual concept.
+
+For humorous or absurd songs, preserve the actual visual joke or absurdity instead
+of turning the cover into generic dramatic artwork.
+
+For songs centered on a specific character, make that character visually central
+when appropriate.
+
+Keep COVER_ART reasonably concise and information-dense.
+
+============================================================
 FINAL QUALITY CHECK
 ============================================================
 
@@ -575,13 +613,21 @@ For STYLE, verify:
   arrangement, production, and mood where appropriate?
 - Did musical information that belongs here accidentally appear in LYRICS?
 
+For COVER_ART, verify:
+
+- Is it a useful standalone diffusion prompt?
+- Does it clearly belong to this specific song rather than almost any album?
+- Does it preserve the important visual premise and emotional tone?
+- Is it concrete enough for an image model to compose?
+- Did it avoid gratuitous typography, logos, or generic music symbolism?
+
 Correct any problems silently.
 
 ============================================================
 OUTPUT FORMAT
 ============================================================
 
-Return one JSON object containing exactly two fields:
+Return one JSON object containing exactly three fields:
 
 "lyrics":
 A single string containing the complete YuE2-ready lyrics.
@@ -589,9 +635,12 @@ A single string containing the complete YuE2-ready lyrics.
 "style":
 A single string containing the complete YuE2-ready musical style description.
 
-Both fields are REQUIRED.
-Both values MUST be strings.
-Neither value may be empty.
+"cover_art":
+A single string containing a diffusion-ready prompt for square cover artwork.
+
+All three fields are REQUIRED.
+All three values MUST be strings.
+No value may be empty.
 
 Do not add any other fields.
 Do not use Markdown or code fences.
@@ -606,9 +655,54 @@ literal words intended to be vocalized by the singer.
 
 Do not use parentheses anywhere in "lyrics".
 
-Before returning the result, verify that BOTH "lyrics" and "style" exist and
-contain non-empty strings.
+Before returning the result, verify that "lyrics", "style", and "cover_art"
+all exist and contain non-empty strings.
 """
+
+
+SONG_LENGTH_INSTRUCTIONS = {
+    "very_short": """
+SONG LENGTH REQUIREMENT: VERY SHORT.
+Target roughly 30-60 seconds of finished music.
+Write approximately 6-10 sung lines TOTAL, counting repeated lines and repeated choruses.
+Prefer a compact structure such as [Verse], [Chorus], [Outro].
+Usually use no more than 3 lyrical sections.
+Do not add a bridge, pre-chorus, breakdown, instrumental section, repeated chorus,
+or extended outro unless absolutely necessary.
+Keep individual lines compact and naturally singable.
+Reach a natural lyrical conclusion quickly.
+Do not compensate for the short length with unusually long or dense lines.
+""",
+    "short": """
+SONG LENGTH REQUIREMENT: SHORT.
+Target roughly 60-90 seconds of finished music.
+Write approximately 10-16 sung lines TOTAL, counting repeated lines and repeated choruses.
+Prefer a compact structure such as [Verse 1], [Chorus], [Verse 2], [Final Chorus],
+but use fewer sections when the genre or premise benefits from it.
+Verses should normally be about 3-4 lines and choruses about 3-4 lines.
+Avoid bridges, pre-choruses, breakdowns, instrumental sections, repeated outros,
+and extra chorus repetitions unless they are genuinely necessary.
+Reach a natural lyrical conclusion quickly.
+Do not compensate for the short length with unusually long or dense lines.
+""",
+    "standard": """
+SONG LENGTH REQUIREMENT: STANDARD.
+Target roughly 2-3 minutes of finished music.
+Write approximately 20-32 sung lines TOTAL, counting repeated lines and repeated choruses.
+Use a complete but economical song structure appropriate to the genre.
+Avoid adding sections or chorus repetitions merely to inflate the song.
+Allow enough development for a satisfying song while still reaching a natural ending.
+""",
+    "full": """
+SONG LENGTH REQUIREMENT: FULL.
+Target roughly 3-4 minutes of finished music.
+Write approximately 32-48 sung lines TOTAL, counting repeated lines and repeated choruses.
+Use a full song structure appropriate to the genre and premise.
+Bridges, pre-choruses, instrumental sections, and repeated choruses are allowed when
+musically justified, but do not add them mechanically.
+Allow substantial development while maintaining lyrical economy.
+""",
+}
 
 class LlamaCppYuE2SongWriter:
     @classmethod
@@ -622,6 +716,17 @@ class LlamaCppYuE2SongWriter:
                         "default": (
                             "A funny upbeat song about a dog who believes "
                             "the mail carrier is her mortal enemy."
+                        ),
+                    },
+                ),
+                "song_length": (
+                    ["very_short", "short", "standard", "full"],
+                    {
+                        "default": "standard",
+                        "tooltip": (
+                            "Controls the requested composition length by constraining "
+                            "lyric structure and total sung lines. YuE2 max duration "
+                            "should remain a separate safety ceiling."
                         ),
                     },
                 ),
@@ -673,14 +778,15 @@ class LlamaCppYuE2SongWriter:
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("lyrics", "style")
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("lyrics", "style", "cover_art")
     FUNCTION = "generate_song"
     CATEGORY = "audio/YuE2"
 
     def generate_song(
         self,
         prompt,
+        song_length,
         llama_url,
         temperature,
         max_tokens,
@@ -688,6 +794,21 @@ class LlamaCppYuE2SongWriter:
         api_key="",
     ):
         url = llama_url.rstrip("/") + "/v1/chat/completions"
+
+        length_instruction = SONG_LENGTH_INSTRUCTIONS.get(
+            song_length,
+            SONG_LENGTH_INSTRUCTIONS["standard"],
+        ).strip()
+
+        user_prompt = (
+            prompt.strip()
+            + "\n\n"
+            + length_instruction
+            + "\n\n"
+            + "The song-length requirement above is a hard compositional constraint. "
+              "Count sung lyric lines before responding and keep the total within the "
+              "requested range. Section markers do not count as sung lines."
+        )
 
         payload = {
             "messages": [
@@ -697,7 +818,7 @@ class LlamaCppYuE2SongWriter:
                 },
                 {
                     "role": "user",
-                    "content": prompt.strip(),
+                    "content": user_prompt,
                 },
             ],
             "temperature": temperature,
@@ -718,8 +839,12 @@ class LlamaCppYuE2SongWriter:
                                 "type": "string",
                                 "minLength": 1,
                             },
+                            "cover_art": {
+                                "type": "string",
+                                "minLength": 1,
+                            },
                         },
-                        "required": ["lyrics", "style"],
+                        "required": ["lyrics", "style", "cover_art"],
                         "additionalProperties": False,
                     },
                 },
@@ -794,6 +919,7 @@ class LlamaCppYuE2SongWriter:
 
         lyrics = song.get("lyrics")
         style = song.get("style")
+        cover_art = song.get("cover_art")
 
         if not isinstance(lyrics, str) or not lyrics.strip():
             raise RuntimeError(
@@ -807,7 +933,13 @@ class LlamaCppYuE2SongWriter:
                 f"Parsed response:\n{json.dumps(song, indent=2, ensure_ascii=False)}"
             )
 
-        return (lyrics.strip(), style.strip())
+        if not isinstance(cover_art, str) or not cover_art.strip():
+            raise RuntimeError(
+                "LLM response did not contain a valid 'cover_art' string.\n\n"
+                f"Parsed response:\n{json.dumps(song, indent=2, ensure_ascii=False)}"
+            )
+
+        return (lyrics.strip(), style.strip(), cover_art.strip())
 
 
 NODE_CLASS_MAPPINGS = {
