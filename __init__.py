@@ -19,7 +19,7 @@ You are creating direct conditioning inputs for a music-generation model.
 You are NOT explaining the song, discussing your choices, reviewing the user's
 idea, or writing notes for a human musician.
 
-The two outputs must be designed together as parts of the same song.
+The three outputs must be designed together as parts of the same song.
 
 ============================================================
 FIRST: UNDERSTAND THE SONG
@@ -182,6 +182,18 @@ If so, improve it.
 
 A song about a specific situation should feel unmistakably like a song about
 that situation.
+
+Before writing, silently identify several concrete facts, objects, actions, habits, places,
+or other premise-specific details supplied or strongly implied by the user's request.
+Use at least 2-3 of them naturally in the lyrics when the premise provides enough material.
+Simply repeating a character's name does not count as specificity.
+
+Especially in romantic, nostalgic, sentimental, inspirational, or wholesome songs, do not
+let conventional genre metaphors replace the actual subject. At least one concrete,
+premise-specific detail should normally appear in each verse.
+
+As a final test, imagine replacing the character names with unrelated names. If most of the
+lyrics could then serve an unrelated song unchanged, rewrite them with sharper specificity.
 
 ============================================================
 AVOID GENERIC AI SONGWRITING
@@ -566,7 +578,8 @@ The prompt should:
 - avoid instructions to the diffusion model such as "generate an image of"
 - avoid negative-prompt boilerplate unless specifically useful
 - include a fictitious and humorous title for the album this song might be on and the band that performed it.
-- explicitly state how the album title and band name should be displayed, fitting to the album genre, etc.
+- explicitly state the exact album title and exact band name as quoted text, and describe their placement, relative size, typography, contrast, and visual treatment appropriate to the musical genre.
+- instruct the image model to render only the title and band name themselves, without literal field labels such as "Album:", "Band:", "Title:", or "Artist:" unless the concept specifically requires those labels.
 
 Do not merely summarize the plot. Translate the song into a strong visual concept.
 
@@ -597,6 +610,8 @@ For LYRICS, verify:
   specific?
 - Are any rhymes obviously forced?
 - Are any lines poetic-sounding nonsense?
+- Did any rhyme choice distort grammar or accidentally change the intended meaning?
+- Does every line still mean what it appears to mean when read literally?
 - Does LYRICS contain ANY "(" or ")" characters?
 - Does ANY line contain an instrumental, production, arrangement, or performance
   instruction?
@@ -619,7 +634,7 @@ For COVER_ART, verify:
 - Does it clearly belong to this specific song rather than almost any album?
 - Does it preserve the important visual premise and emotional tone?
 - Is it concrete enough for an image model to compose?
-- Did it avoid gratuitous typography, logos, or generic music symbolism?
+- Is the requested album-title and band-name typography intentional, clearly specified, and genre-appropriate rather than gratuitous?
 
 Correct any problems silently.
 
@@ -664,26 +679,35 @@ SONG_LENGTH_INSTRUCTIONS = {
     "very_short": """
 SONG LENGTH REQUIREMENT: VERY SHORT.
 Target roughly 30-60 seconds of finished music.
-Write approximately 6-10 sung lines TOTAL, counting repeated lines and repeated choruses.
-Prefer a compact structure such as [Verse], [Chorus], [Outro].
-Usually use no more than 3 lyrical sections.
+Before writing, choose a sung-line budget between 6 and 10 that suits the genre and premise.
+Do not automatically choose the maximum. Count repeated lines and repeated choruses in this budget.
+Vary the number and size of sections naturally. Do not default to equal four-line sections.
+Usually use no more than 2-3 lyrical sections, but choose the structure the song actually needs.
 Do not add a bridge, pre-chorus, breakdown, instrumental section, repeated chorus,
 or extended outro unless absolutely necessary.
 Keep individual lines compact and naturally singable.
 Reach a natural lyrical conclusion quickly.
 Do not compensate for the short length with unusually long or dense lines.
+In STYLE, explicitly require vocals to begin almost immediately, ideally within 2-3 seconds,
+with no extended instrumental introduction or long atmospheric buildup.
 """,
     "short": """
 SONG LENGTH REQUIREMENT: SHORT.
 Target roughly 60-90 seconds of finished music.
-Write approximately 10-16 sung lines TOTAL, counting repeated lines and repeated choruses.
-Prefer a compact structure such as [Verse 1], [Chorus], [Verse 2], [Final Chorus],
-but use fewer sections when the genre or premise benefits from it.
-Verses should normally be about 3-4 lines and choruses about 3-4 lines.
+Before writing, choose a sung-line budget between 10 and 16 that suits the genre, tempo,
+lyrical density, and premise. Do not automatically choose the maximum of 16.
+Count repeated lines and repeated choruses in this budget.
+Vary the number and size of sections naturally according to the genre and premise.
+Do NOT default to four sections of four lines or mechanically use
+[Verse 1] / [Chorus] / [Verse 2] / [Final Chorus].
+Sections do not need equal numbers of lines. Compact verses, short refrains, asymmetric
+sections, or fewer total sections are encouraged when musically appropriate.
 Avoid bridges, pre-choruses, breakdowns, instrumental sections, repeated outros,
 and extra chorus repetitions unless they are genuinely necessary.
 Reach a natural lyrical conclusion quickly.
 Do not compensate for the short length with unusually long or dense lines.
+In STYLE, explicitly require vocals to begin within approximately 3-5 seconds,
+with no extended instrumental introduction or long atmospheric buildup.
 """,
     "standard": """
 SONG LENGTH REQUIREMENT: STANDARD.
